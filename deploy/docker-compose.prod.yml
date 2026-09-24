@@ -1,0 +1,39 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    command: --performance-schema=OFF --innodb-buffer-pool-size=128M
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: travel
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_PASSWORD}"]
+      interval: 5s
+      retries: 30
+
+  api:
+    image: ghcr.io/${OWNER}/travel-api:latest
+    restart: unless-stopped
+    environment:
+      DB_URL: jdbc:mysql://db:3306/travel
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      JAVA_TOOL_OPTIONS: -Xmx320m
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: ghcr.io/${OWNER}/travel-web:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+
+volumes:
+  db-data:
