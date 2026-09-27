@@ -1,0 +1,3 @@
+﻿travel.duttjatin.pro {
+    reverse_proxy web:80
+}

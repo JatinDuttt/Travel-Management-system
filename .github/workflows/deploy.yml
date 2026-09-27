@@ -1,3 +1,4 @@
+@'
 name: Deploy
 on:
   workflow_run:
@@ -12,7 +13,6 @@ permissions:
 
 jobs:
   deploy:
-    # only deploy when CI passed (or when started by hand)
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
@@ -60,8 +60,10 @@ jobs:
       - name: Copy files to server
         run: |
           scp -i ~/.ssh/deploy_key deploy/docker-compose.prod.yml ubuntu@${{ secrets.EC2_HOST }}:/opt/travel/docker-compose.yml
+          scp -i ~/.ssh/deploy_key deploy/Caddyfile ubuntu@${{ secrets.EC2_HOST }}:/opt/travel/Caddyfile
           scp -i ~/.ssh/deploy_key server.env ubuntu@${{ secrets.EC2_HOST }}:/opt/travel/.env
 
       - name: Pull and restart
         run: |
           ssh -i ~/.ssh/deploy_key ubuntu@${{ secrets.EC2_HOST }} "chmod 600 /opt/travel/.env && echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u ${{ github.actor }} --password-stdin && cd /opt/travel && docker compose pull && docker compose up -d && docker image prune -f"
+'@ | Set-Content -Path .github\workflows\deploy.yml -Encoding utf8

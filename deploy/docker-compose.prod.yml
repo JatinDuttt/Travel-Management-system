@@ -1,4 +1,4 @@
-services:
+﻿services:
   db:
     image: mysql:8.4
     restart: unless-stopped
@@ -30,10 +30,23 @@ services:
   web:
     image: ghcr.io/${OWNER}/travel-web:latest
     restart: unless-stopped
-    ports:
-      - "80:80"
     depends_on:
       - api
 
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - web
+
 volumes:
   db-data:
+  caddy-data:
+  caddy-config:
