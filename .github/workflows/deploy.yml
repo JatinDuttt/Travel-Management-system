@@ -1,4 +1,3 @@
-@'
 name: Deploy
 on:
   workflow_run:
@@ -66,4 +65,3 @@ jobs:
       - name: Pull and restart
         run: |
           ssh -i ~/.ssh/deploy_key ubuntu@${{ secrets.EC2_HOST }} "chmod 600 /opt/travel/.env && echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u ${{ github.actor }} --password-stdin && cd /opt/travel && docker compose pull && docker compose up -d && docker image prune -f"
-'@ | Set-Content -Path .github\workflows\deploy.yml -Encoding utf8
