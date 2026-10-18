@@ -28,7 +28,7 @@ export default function App() {
   }, [token]); // eslint-disable-line
 
   const isAdmin = auth?.role === "ADMIN";
-  const tabs = [["packages", "Trips"], ...(auth ? [["bookings", "My bookings"]] : []), ...(isAdmin ? [["admin", "Add a trip"]] : [])];
+  const tabs = [["packages", "Trips"], ["hotels", "Hotels"], ...(auth ? [["bookings", "My bookings"]] : []), ...(isAdmin ? [["admin", "Add a trip"]] : [])];
 
   return (
     <>
@@ -47,10 +47,14 @@ export default function App() {
       </header>
       <main>
         {view === "packages" && <Packages call={call} auth={auth} say={say} isAdmin={isAdmin} />}
-        {view === "bookings" && auth && <Bookings call={call} say={say} />}
-        {view === "admin" && isAdmin && <AddPackage call={call} say={say} done={() => setView("packages")} />}
-        {view === "login" && <AuthForm say={say} done={(a) => { setAuth(a); setView("packages"); }} />}
+        {view === "hotels" && <Hotels call={call} auth={auth} say={say} isAdmin={isAdmin} />}
+        <div className="wrap narrow">
+          {view === "bookings" && auth && <><Bookings call={call} say={say} /><HotelStays call={call} say={say} /></>}
+          {view === "admin" && isAdmin && <><AddPackage call={call} say={say} done={() => setView("packages")} /><AddHotel call={call} say={say} done={() => setView("hotels")} /></>}
+          {view === "login" && <AuthForm say={say} done={(a) => { setAuth(a); setView("packages"); }} />}
+        </div>
       </main>
+      <Footer />
       {note && <div className={"toast " + note.type} role="status" aria-live="polite">{note.text}</div>}
     </>
   );
@@ -70,15 +74,20 @@ function Packages({ call, auth, say, isAdmin }) {
   return (
     <>
       <section className="hero">
+        <div className="hero-in">
         <h1>Where do you want to go?</h1>
+        <p className="lede">Pick a trip, choose how many are travelling, and book in one step.</p>
         <div className="search">
           <input aria-label="Destination" placeholder="Search a destination, e.g. Goa" value={q} onChange={(e) => setQ(e.target.value)} />
           <input aria-label="Maximum price" type="number" min="0" placeholder="Max price (₹)" value={max} onChange={(e) => setMax(e.target.value)} />
         </div>
+        </div>
       </section>
+      <div className="wrap">
       {items === null ? <p className="muted">Loading trips…</p>
         : items.length === 0 ? <p className="muted">No trips match. Clear the filters or ask an admin to add one.</p>
-        : <ul className="list">{items.map((p) => <Row key={p.id} p={p} auth={auth} call={call} say={say} reload={load} isAdmin={isAdmin} />)}</ul>}
+        : <ul className="grid">{items.map((p) => <Row key={p.id} p={p} auth={auth} call={call} say={say} reload={load} isAdmin={isAdmin} />)}</ul>}
+      </div>
     </>
   );
 }
@@ -94,24 +103,31 @@ function Row({ p, auth, call, say, reload, isAdmin }) {
     if (!window.confirm(`Delete ${p.name}?`)) return;
     try { await call(`/api/packages/${p.id}`, { method: "DELETE" }); say("Trip deleted."); reload(); } catch { /* shown by call() */ }
   };
+  const hue = [...p.destination].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
+  const photo = `https://loremflickr.com/640/480/${encodeURIComponent(p.destination)},travel?lock=${p.id}`;
   return (
-    <li className="row">
-      <div>
-        <h2>{p.name}</h2>
-        <p className="muted">{p.destination}, from {day(p.startDate)}{p.description ? `. ${p.description}` : ""}</p>
-        <p className={p.availableSeats <= 5 ? "seats low" : "seats"}>{p.availableSeats === 0 ? "Sold out" : `${p.availableSeats} seats left`}</p>
+    <li className="card">
+      <div className="cover" style={{ "--h": hue }}>
+        <img src={photo} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+        <span className="chip">{day(p.startDate)}</span>
+        {p.availableSeats === 0 && <span className="chip sold">Sold out</span>}
       </div>
-      <div className="side">
-        <div className="price">{money.format(p.price)}<small> per person</small></div>
-        {p.availableSeats > 0 && (
-          <div className="act">
-            <select aria-label="Travellers" value={n} onChange={(e) => setN(+e.target.value)}>
-              {Array.from({ length: most }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}
-            </select>
-            <button className="btn" onClick={book}>Book trip</button>
-          </div>
-        )}
-        {isAdmin && <button className="btn ghost" onClick={remove}>Delete</button>}
+      <div className="body">
+        <h2>{p.name}</h2>
+        <p className="muted">{p.destination}{p.description ? `. ${p.description}` : ""}</p>
+        <p className={p.availableSeats <= 5 ? "seats low" : "seats"}>{p.availableSeats === 0 ? "No seats left" : `${p.availableSeats} seats left`}</p>
+        <div className="foot">
+          <div className="price">{money.format(p.price)}<small> per person</small></div>
+          {p.availableSeats > 0 && (
+            <div className="act">
+              <select aria-label="Travellers" value={n} onChange={(e) => setN(+e.target.value)}>
+                {Array.from({ length: most }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}
+              </select>
+              <button className="btn" onClick={book}>Book trip</button>
+            </div>
+          )}
+        </div>
+        {isAdmin && <button className="btn ghost del" onClick={remove}>Delete trip</button>}
       </div>
     </li>
   );
@@ -189,6 +205,134 @@ function AuthForm({ say, done }) {
       <button type="button" className="link" onClick={() => setMode(mode === "login" ? "register" : "login")}>
         {mode === "login" ? "New here? Create an account" : "Have an account? Log in"}
       </button>
+    </form>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="foot-bar">
+      <div className="foot-in">
+        <div>
+          <strong className="brand">Travel Desk</strong>
+          <p>Browse trips, book seats, and manage your bookings in one place.</p>
+        </div>
+        <p className="small">Built by Jatin with Spring Boot, React and MySQL.{" "}
+          <a href="https://github.com/JatinDuttt/Travel-Management-system">Source on GitHub</a></p>
+      </div>
+    </footer>
+  );
+}
+
+const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
+function Hotels({ call, auth, say, isAdmin }) {
+  const [q, setQ] = useState("");
+  const [items, setItems] = useState(null);
+  const load = useCallback(() => call(`/api/hotels?${new URLSearchParams({ city: q, size: 20 })}`)
+    .then((d) => setItems(d.content)).catch(() => setItems([])), [q, call]);
+  useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [load]);
+  return (
+    <div className="wrap">
+      <h1 className="page">Where do you want to stay?</h1>
+      <div className="search"><input aria-label="City" placeholder="Search a city, e.g. Jaipur" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+      <div className="gap" />
+      {items === null ? <p className="muted">Loading hotels…</p>
+        : items.length === 0 ? <p className="muted">No hotels found. Try another city or ask an admin to add one.</p>
+        : <ul className="grid">{items.map((h) => <Stay key={h.id} h={h} auth={auth} call={call} say={say} isAdmin={isAdmin} reload={load} />)}</ul>}
+    </div>
+  );
+}
+
+function Stay({ h, auth, call, say, isAdmin, reload }) {
+  const [inD, setIn] = useState("");
+  const [outD, setOut] = useState("");
+  const [n, setN] = useState(1);
+  const hue = [...h.city].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 11);
+  const photo = `https://loremflickr.com/640/480/${encodeURIComponent(h.city)},hotel?lock=${h.id}`;
+  const book = async () => {
+    if (!auth) return say("Log in to book a stay.", "err");
+    if (!inD || !outD) return say("Choose check-in and check-out dates.", "err");
+    try {
+      const b = await call("/api/hotel-bookings", { method: "POST", body: { hotelId: h.id, checkIn: inD, checkOut: outD, rooms: n } });
+      say(`Booked ${h.name} for ${money.format(b.totalPrice)}.`); setIn(""); setOut(""); setN(1);
+    } catch { /* shown by call() */ }
+  };
+  const remove = async () => {
+    if (!window.confirm(`Delete ${h.name}?`)) return;
+    try { await call(`/api/hotels/${h.id}`, { method: "DELETE" }); say("Hotel deleted."); reload(); } catch { /* shown by call() */ }
+  };
+  return (
+    <li className="card">
+      <div className="cover" style={{ "--h": hue }}>
+        <img src={photo} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+        <span className="chip">{h.city}</span>
+      </div>
+      <div className="body">
+        <h2>{h.name}</h2>
+        <p className="seats">{h.rooms} rooms</p>
+        <div className="dates">
+          <label>Check-in<input type="date" min={today()} value={inD} onChange={(e) => setIn(e.target.value)} /></label>
+          <label>Check-out<input type="date" min={inD || today()} value={outD} onChange={(e) => setOut(e.target.value)} /></label>
+        </div>
+        <div className="foot">
+          <div className="price">{money.format(h.pricePerNight)}<small> per night</small></div>
+          <div className="act">
+            <select aria-label="Rooms" value={n} onChange={(e) => setN(+e.target.value)}>
+              {Array.from({ length: Math.min(5, h.rooms) }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}
+            </select>
+            <button className="btn" onClick={book}>Book stay</button>
+          </div>
+        </div>
+        {isAdmin && <button className="btn ghost del" onClick={remove}>Delete hotel</button>}
+      </div>
+    </li>
+  );
+}
+
+function HotelStays({ call, say }) {
+  const [items, setItems] = useState(null);
+  const load = useCallback(() => call("/api/hotel-bookings/my").then(setItems).catch(() => setItems([])), [call]);
+  useEffect(() => { load(); }, [load]);
+  const cancel = async (id) => {
+    try { await call(`/api/hotel-bookings/${id}`, { method: "DELETE" }); say("Stay cancelled."); load(); } catch { /* shown by call() */ }
+  };
+  return (
+    <>
+      <h1 className="page sub">Hotel stays</h1>
+      {items === null ? <p className="muted">Loading…</p>
+        : items.length === 0 ? <p className="muted">No hotel stays yet. Find one under Hotels.</p>
+        : <ul className="list">{items.map((b) => (
+          <li className="row" key={b.id}>
+            <div>
+              <h2>{b.hotel.name}</h2>
+              <p className="muted">{b.hotel.city}, {day(b.checkIn)} to {day(b.checkOut)}, {b.rooms} room{b.rooms > 1 ? "s" : ""}</p>
+              <p className={b.status === "CANCELLED" ? "seats low" : "seats"}>{b.status === "CANCELLED" ? "Cancelled" : "Confirmed"}</p>
+            </div>
+            <div className="side">
+              <div className="price">{money.format(b.totalPrice)}</div>
+              {b.status === "CONFIRMED" && <button className="btn ghost" onClick={() => cancel(b.id)}>Cancel stay</button>}
+            </div>
+          </li>))}</ul>}
+    </>
+  );
+}
+
+function AddHotel({ call, say, done }) {
+  const [f, setF] = useState({ name: "", city: "", pricePerNight: "", rooms: "" });
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const submit = async (e) => {
+    e.preventDefault();
+    try { await call("/api/hotels", { method: "POST", body: { ...f, pricePerNight: +f.pricePerNight, rooms: +f.rooms } }); say("Hotel added."); done(); } catch { /* shown by call() */ }
+  };
+  return (
+    <form className="form" onSubmit={submit}>
+      <h1 className="page">Add a hotel</h1>
+      <label>Hotel name<input required value={f.name} onChange={set("name")} /></label>
+      <label>City<input required value={f.city} onChange={set("city")} /></label>
+      <label>Price per night (₹)<input required type="number" min="1" value={f.pricePerNight} onChange={set("pricePerNight")} /></label>
+      <label>Rooms<input required type="number" min="1" value={f.rooms} onChange={set("rooms")} /></label>
+      <button className="btn">Add hotel</button>
     </form>
   );
 }
