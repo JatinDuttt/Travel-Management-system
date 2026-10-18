@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
@@ -40,4 +41,8 @@ public class HotelBookingController {
         boolean admin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         return service.cancel(id, auth.getName(), admin);
     }
+
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<HotelBooking> all() { return stays.findAll(); }
 }

@@ -77,6 +77,26 @@ select{width:auto;padding:.55rem .6rem;border-radius:999px}
 .form + .form{margin-top:2rem}
 .gap{height:1.5rem}
 
+/* admin bookings */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1rem;margin:1rem 0 1.5rem}
+.stat{background:var(--surface);border-radius:14px;padding:1rem 1.25rem;box-shadow:0 1px 2px rgba(16,38,46,.08),0 8px 24px rgba(16,38,46,.06)}
+.stat b{display:block;font:800 1.8rem "Bricolage Grotesque",sans-serif;line-height:1.2}
+.stat span{color:var(--muted);font-size:.9rem}
+.toolbar{display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;margin-bottom:1rem}
+.toolbar input{flex:1 1 240px;max-width:380px}
+.toolbar select{padding:.7rem .9rem;border-radius:10px}
+.seg{display:flex;gap:.25rem;background:#dbe6e5;padding:.25rem;border-radius:999px}
+.seg button{border:0;background:none;font:inherit;font-weight:600;padding:.4rem 1rem;border-radius:999px;cursor:pointer;color:var(--ink)}
+.seg button.on{background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.table-wrap{overflow-x:auto;background:var(--surface);border-radius:14px;box-shadow:0 1px 2px rgba(16,38,46,.08),0 8px 24px rgba(16,38,46,.06)}
+table.data{width:100%;border-collapse:collapse;min-width:820px}
+.data th{text-align:left;font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:.8rem 1rem;border-bottom:1px solid var(--line)}
+.data td{padding:.8rem 1rem;border-bottom:1px solid var(--line);vertical-align:top}
+.data tr:last-child td{border-bottom:0}
+.pill{display:inline-block;padding:.15rem .65rem;border-radius:999px;font-size:.8rem;font-weight:600;background:#d8efe6;color:#0a5a3c}
+.pill.off{background:#f5dcd9;color:var(--err)}
+.btn.sm{padding:.25rem .85rem;font-size:.85rem}
+
 /* footer */
 .foot-bar{background:var(--ink);color:#c9d8db;padding:2rem 1.25rem;margin-top:auto}
 .foot-in{max-width:1080px;margin:0 auto;display:flex;flex-wrap:wrap;gap:1rem 3rem;justify-content:space-between;align-items:flex-end}

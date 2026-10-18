@@ -52,7 +52,7 @@ export default function App() {
   }, [token]); // eslint-disable-line
 
   const isAdmin = auth?.role === "ADMIN";
-  const tabs = [["packages", "Trips"], ["hotels", "Hotels"], ...(auth ? [["bookings", "My bookings"]] : []), ...(isAdmin ? [["admin", "Add a trip"]] : [])];
+  const tabs = [["packages", "Trips"], ["hotels", "Hotels"], ...(auth ? [["bookings", "My bookings"]] : []), ...(isAdmin ? [["manage", "Manage bookings"], ["admin", "Add a trip"]] : [])];
 
   return (
     <>
@@ -71,6 +71,7 @@ export default function App() {
       </header>
       <main>
         {view === "packages" && <Packages call={call} auth={auth} say={say} isAdmin={isAdmin} />}
+        {view === "manage" && isAdmin && <ManageBookings call={call} say={say} />}
         {view === "hotels" && <Hotels call={call} auth={auth} say={say} isAdmin={isAdmin} />}
         <div className="wrap narrow">
           {view === "bookings" && auth && <><Bookings call={call} say={say} /><HotelStays call={call} say={say} /></>}
@@ -358,5 +359,87 @@ function AddHotel({ call, say, done }) {
       <label>Rooms<input required type="number" min="1" value={f.rooms} onChange={set("rooms")} /></label>
       <button className="btn">Add hotel</button>
     </form>
+  );
+}
+
+function ManageBookings({ call, say }) {
+  const [trips, setTrips] = useState(null);
+  const [stays, setStays] = useState(null);
+  const [kind, setKind] = useState("trips");
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState("ALL");
+  const load = useCallback(() => {
+    call("/api/bookings").then(setTrips).catch(() => setTrips([]));
+    call("/api/hotel-bookings").then(setStays).catch(() => setStays([]));
+  }, [call]);
+  useEffect(() => { load(); }, [load]);
+
+  const isTrips = kind === "trips";
+  const all = (isTrips ? trips : stays) ?? [];
+  const title = (b) => (isTrips ? b.travelPackage.name : b.hotel.name);
+  const place = (b) => (isTrips ? b.travelPackage.destination : b.hotel.city);
+  const needle = q.trim().toLowerCase();
+  const rows = all
+    .filter((b) => (status === "ALL" || b.status === status)
+      && (!needle || [b.id, b.userEmail, title(b), place(b)].join(" ").toLowerCase().includes(needle)))
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  const confirmed = all.filter((b) => b.status === "CONFIRMED");
+  const revenue = confirmed.reduce((sum, b) => sum + Number(b.totalPrice), 0);
+
+  const cancel = async (b) => {
+    if (!window.confirm(`Cancel booking #${b.id} for ${b.userEmail}?`)) return;
+    try { await call(`${isTrips ? "/api/bookings/" : "/api/hotel-bookings/"}${b.id}`, { method: "DELETE" }); say("Booking cancelled."); load(); } catch { /* shown by call() */ }
+  };
+
+  return (
+    <div className="wrap">
+      <h1 className="page">Manage bookings</h1>
+      <div className="stats">
+        <div className="stat"><b>{confirmed.length}</b><span>Confirmed {isTrips ? "trip" : "hotel"} bookings</span></div>
+        <div className="stat"><b>{all.length - confirmed.length}</b><span>Cancelled</span></div>
+        <div className="stat"><b>{money.format(revenue)}</b><span>Confirmed value</span></div>
+      </div>
+      <div className="toolbar">
+        <div className="seg">
+          <button className={isTrips ? "on" : ""} onClick={() => setKind("trips")}>Trips ({(trips ?? []).length})</button>
+          <button className={!isTrips ? "on" : ""} onClick={() => setKind("hotels")}>Hotels ({(stays ?? []).length})</button>
+        </div>
+        <input aria-label="Search" placeholder="Search guest email, name, place or ID" value={q} onChange={(e) => setQ(e.target.value)} />
+        <select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="ALL">All statuses</option>
+          <option value="CONFIRMED">Confirmed</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+        <button className="btn ghost sm" onClick={load}>Refresh</button>
+      </div>
+      {(isTrips ? trips : stays) === null ? <p className="muted">Loading…</p>
+        : rows.length === 0 ? <p className="muted">No bookings match.</p>
+        : (
+          <div className="table-wrap">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th>ID</th><th>Guest</th><th>{isTrips ? "Trip" : "Hotel"}</th>
+                  <th>{isTrips ? "Travellers" : "Stay"}</th><th>Total</th><th>Booked</th><th>Status</th><th />
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((b) => (
+                  <tr key={b.id}>
+                    <td>#{b.id}</td>
+                    <td>{b.userEmail}</td>
+                    <td><strong>{title(b)}</strong><br /><span className="muted">{place(b)}</span></td>
+                    <td>{isTrips ? b.travelers : `${day(b.checkIn)} to ${day(b.checkOut)}, ${b.rooms} room${b.rooms > 1 ? "s" : ""}`}</td>
+                    <td>{money.format(b.totalPrice)}</td>
+                    <td>{day(b.createdAt)}</td>
+                    <td><span className={"pill" + (b.status === "CONFIRMED" ? "" : " off")}>{b.status === "CONFIRMED" ? "Confirmed" : "Cancelled"}</span></td>
+                    <td>{b.status === "CONFIRMED" && <button className="btn ghost sm" onClick={() => cancel(b)}>Cancel</button>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+    </div>
   );
 }
