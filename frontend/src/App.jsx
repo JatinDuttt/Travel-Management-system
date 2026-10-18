@@ -52,7 +52,7 @@ export default function App() {
   }, [token]); // eslint-disable-line
 
   const isAdmin = auth?.role === "ADMIN";
-  const tabs = [["packages", "Trips"], ["hotels", "Hotels"], ...(auth ? [["bookings", "My bookings"]] : []), ...(isAdmin ? [["manage", "Manage bookings"], ["admin", "Add a trip"]] : [])];
+  const tabs = [["packages", "Trips"], ["hotels", "Hotels"], ...(auth ? [["bookings", "My bookings"]] : []), ...(isAdmin ? [["manage", "Manage bookings"], ["users", "Users"], ["admin", "Add a trip"]] : [])];
 
   return (
     <>
@@ -71,6 +71,7 @@ export default function App() {
       </header>
       <main>
         {view === "packages" && <Packages call={call} auth={auth} say={say} isAdmin={isAdmin} />}
+        {view === "users" && isAdmin && <ManageUsers call={call} />}
         {view === "manage" && isAdmin && <ManageBookings call={call} say={say} />}
         {view === "hotels" && <Hotels call={call} auth={auth} say={say} isAdmin={isAdmin} />}
         <div className="wrap narrow">
@@ -436,6 +437,82 @@ function ManageBookings({ call, say }) {
                     <td>{b.status === "CONFIRMED" && <button className="btn ghost sm" onClick={() => cancel(b)}>Cancel</button>}</td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+    </div>
+  );
+}
+
+function ManageUsers({ call }) {
+  const [users, setUsers] = useState(null);
+  const [trips, setTrips] = useState([]);
+  const [stays, setStays] = useState([]);
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(null);
+  useEffect(() => {
+    call("/api/users").then(setUsers).catch(() => setUsers([]));
+    call("/api/bookings").then(setTrips).catch(() => {});
+    call("/api/hotel-bookings").then(setStays).catch(() => {});
+  }, [call]);
+
+  const needle = q.trim().toLowerCase();
+  const all = (users ?? []).map((u) => {
+    const t = trips.filter((b) => b.userEmail === u.email);
+    const h = stays.filter((b) => b.userEmail === u.email);
+    const live = [...t, ...h].filter((b) => b.status === "CONFIRMED");
+    return { ...u, t, h, live: live.length, spent: live.reduce((sum, b) => sum + Number(b.totalPrice), 0) };
+  });
+  const rows = all.filter((u) => !needle || [u.name, u.email].join(" ").toLowerCase().includes(needle));
+  const members = all.filter((u) => u.role !== "ADMIN");
+
+  return (
+    <div className="wrap">
+      <h1 className="page">Users</h1>
+      <div className="stats">
+        <div className="stat"><b>{members.length}</b><span>Registered users</span></div>
+        <div className="stat"><b>{members.filter((u) => u.live > 0).length}</b><span>Users with an active booking</span></div>
+        <div className="stat"><b>{members.filter((u) => u.t.length + u.h.length === 0).length}</b><span>Users who never booked</span></div>
+        <div className="stat"><b>{money.format(members.reduce((sum, u) => sum + u.spent, 0))}</b><span>Confirmed value</span></div>
+      </div>
+      <div className="toolbar">
+        <input aria-label="Search users" placeholder="Search by name or email" value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
+      {users === null ? <p className="muted">Loading…</p>
+        : rows.length === 0 ? <p className="muted">No users match.</p>
+        : (
+          <div className="table-wrap">
+            <table className="data">
+              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Trips</th><th>Hotel stays</th><th>Confirmed value</th><th /></tr></thead>
+              <tbody>
+                {rows.map((u) => [
+                  <tr key={u.id}>
+                    <td>{u.name || "-"}</td>
+                    <td>{u.email}</td>
+                    <td>{u.role === "ADMIN" ? <span className="pill">Admin</span> : "User"}</td>
+                    <td>{u.t.length}</td>
+                    <td>{u.h.length}</td>
+                    <td>{money.format(u.spent)}</td>
+                    <td><button className="btn ghost sm" onClick={() => setOpen(open === u.id ? null : u.id)}>{open === u.id ? "Hide" : "Details"}</button></td>
+                  </tr>,
+                  open === u.id && (
+                    <tr key={u.id + "-d"} className="detail">
+                      <td colSpan={7}>
+                        {u.t.length + u.h.length === 0 ? <span className="muted">No bookings yet.</span> : (
+                          <ul className="dl">
+                            {u.t.map((b) => (
+                              <li key={"t" + b.id}><strong>Trip #{b.id}</strong> {b.travelPackage.name}, {b.travelPackage.destination}: {b.travelers} traveller{b.travelers > 1 ? "s" : ""}, {money.format(b.totalPrice)}, booked {day(b.createdAt)} ({b.status === "CONFIRMED" ? "confirmed" : "cancelled"})</li>
+                            ))}
+                            {u.h.map((b) => (
+                              <li key={"h" + b.id}><strong>Hotel #{b.id}</strong> {b.hotel.name}, {b.hotel.city}: {day(b.checkIn)} to {day(b.checkOut)}, {b.rooms} room{b.rooms > 1 ? "s" : ""}, {money.format(b.totalPrice)}, booked {day(b.createdAt)} ({b.status === "CONFIRMED" ? "confirmed" : "cancelled"})</li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
+                    </tr>
+                  ),
+                ])}
               </tbody>
             </table>
           </div>

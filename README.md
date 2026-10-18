@@ -11,6 +11,7 @@ Full-stack booking app for trips and hotels. Spring Boot 3 REST API with JWT aut
 - Book trips by number of travelers, and hotels by date range and number of rooms.
 - Cancel bookings; seats and rooms are released automatically.
 - Roles: normal users book and cancel their own bookings; admins add and delete trips and hotels.
+- Admin "Users" page: every account with its trip and hotel booking counts, confirmed value, and a per-user booking history.
 - Admin "Manage bookings" page: all trip and hotel bookings with search, status filter, totals, and one-click cancel.
 - Destination photos are looked up on Wikipedia at runtime, with a colour fallback.
 
@@ -57,6 +58,7 @@ Default admin (dev only): `admin@travel.com` / `Admin@12345`. In any real deploy
 | GET | `/api/hotel-bookings/my` | logged in |
 | DELETE | `/api/hotel-bookings/{id}` (cancel, frees rooms) | owner or ADMIN |
 | GET | `/api/hotel-bookings` | ADMIN |
+| GET | `/api/users` (no password data) | ADMIN |
 
 Send `Authorization: Bearer <token>` on protected calls.
 
