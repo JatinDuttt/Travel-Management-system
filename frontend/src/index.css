@@ -70,13 +70,6 @@ select{width:auto;padding:.55rem .6rem;border-radius:999px}
 .form .btn{justify-self:start}
 .form .page{margin-bottom:.25rem}
 
-.dates{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.5rem}
-.dates label{display:grid;gap:.2rem;font-size:.85rem;font-weight:600}
-.dates input{padding:.5rem .6rem}
-.page.sub{font-size:1.8rem;margin:2.5rem 0 1rem}
-.form + .form{margin-top:2rem}
-.gap{height:1.5rem}
-
 /* footer */
 .foot-bar{background:var(--ink);color:#c9d8db;padding:2rem 1.25rem;margin-top:auto}
 .foot-in{max-width:1080px;margin:0 auto;display:flex;flex-wrap:wrap;gap:1rem 3rem;justify-content:space-between;align-items:flex-end}
