@@ -22,6 +22,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      CORS_ORIGIN: https://travel.duttjatin.pro
       JAVA_TOOL_OPTIONS: -Xmx320m
     depends_on:
       db:
