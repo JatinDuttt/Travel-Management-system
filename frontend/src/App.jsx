@@ -4,6 +4,30 @@ import { api } from "./api";
 const money = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 const day = (d) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
+const photoCache = new Map();
+// Looks up a photo on Wikipedia (free, no key). Tries each query in order, returns "" if none has a photo.
+function usePhoto(queries) {
+  const key = queries.join("|");
+  const [src, setSrc] = useState(photoCache.get(key) || "");
+  useEffect(() => {
+    if (photoCache.has(key)) { setSrc(photoCache.get(key)); return undefined; }
+    let live = true;
+    (async () => {
+      for (const q of queries) {
+        try {
+          const url = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=5&prop=pageimages&piprop=thumbnail&pithumbsize=800&format=json&origin=*`;
+          const data = await (await fetch(url)).json();
+          const hits = Object.values(data.query?.pages ?? {}).filter((x) => x.thumbnail).sort((a, b) => a.index - b.index);
+          if (hits.length) { photoCache.set(key, hits[0].thumbnail.source); if (live) setSrc(hits[0].thumbnail.source); return; }
+        } catch { /* try the next query */ }
+      }
+      photoCache.set(key, "");
+    })();
+    return () => { live = false; };
+  }, [key]); // eslint-disable-line
+  return src;
+}
+
 function useAuth() {
   const [auth, setAuth] = useState(() => { try { return JSON.parse(localStorage.getItem("auth")); } catch { return null; } });
   const save = (a) => {
@@ -104,11 +128,11 @@ function Row({ p, auth, call, say, reload, isAdmin }) {
     try { await call(`/api/packages/${p.id}`, { method: "DELETE" }); say("Trip deleted."); reload(); } catch { /* shown by call() */ }
   };
   const hue = [...p.destination].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
-  const photo = `https://loremflickr.com/640/480/${encodeURIComponent(p.destination)},travel?lock=${p.id}`;
+  const photo = usePhoto([`${p.destination} India`]);
   return (
     <li className="card">
       <div className="cover" style={{ "--h": hue }}>
-        <img src={photo} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+        {photo && <img src={photo} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />}
         <span className="chip">{day(p.startDate)}</span>
         {p.availableSeats === 0 && <span className="chip sold">Sold out</span>}
       </div>
@@ -249,7 +273,7 @@ function Stay({ h, auth, call, say, isAdmin, reload }) {
   const [outD, setOut] = useState("");
   const [n, setN] = useState(1);
   const hue = [...h.city].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 11);
-  const photo = `https://loremflickr.com/640/480/${encodeURIComponent(h.city)},hotel?lock=${h.id}`;
+  const photo = usePhoto([`${h.city} India hotel`, `${h.city} India`]);
   const book = async () => {
     if (!auth) return say("Log in to book a stay.", "err");
     if (!inD || !outD) return say("Choose check-in and check-out dates.", "err");
@@ -265,7 +289,7 @@ function Stay({ h, auth, call, say, isAdmin, reload }) {
   return (
     <li className="card">
       <div className="cover" style={{ "--h": hue }}>
-        <img src={photo} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+        {photo && <img src={photo} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />}
         <span className="chip">{h.city}</span>
       </div>
       <div className="body">
